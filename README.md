@@ -168,8 +168,8 @@ Deletes `/Library/Managed Preferences/com.brave.Browser.plist` and flushes the m
 
 ```
 prepare_managed_plist()
-  ├── mkdir -p /Library/Managed Preferences       (root:wheel 755)
-  ├── touch com.brave.Browser.plist               (root:wheel 644)
+  ├── mkdir -p "/Library/Managed Preferences"     (root:wheel 755)
+  ├── echo '<?xml ...' > com.brave.Browser.plist  (root:wheel 644)
   └── purge_user_layer()
         └── defaults delete com.brave.Browser <key>  ← removes stale user-layer entries
 

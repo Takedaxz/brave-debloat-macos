@@ -61,8 +61,8 @@ prepare_managed_plist() {
     sudo chown root:wheel "/Library/Managed Preferences"
     sudo chmod 755 "/Library/Managed Preferences"
 
-    if [ ! -f "$PLIST" ]; then
-        sudo touch "$PLIST"
+    if [ ! -s "$PLIST" ]; then
+        echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict/></plist>' | sudo tee "$PLIST" >/dev/null
         sudo chown root:wheel "$PLIST"
         sudo chmod 644 "$PLIST"
     fi
