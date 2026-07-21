@@ -213,6 +213,7 @@ apply_quick_preset() {
     echo ""
     reload_policy_cache
     echo "${YELLOW}⚠️  Restart Brave, then check brave://policy and click Reload policies.${NC}"
+    echo "${CYAN}💡 Tip: Use option [5] (Export Profile) to make settings survive Mac reboots.${NC}"
     open -a "Brave Browser" "brave://policy" 2>/dev/null || true
 }
 
@@ -279,6 +280,7 @@ apply_dev_preset() {
     echo ""
     reload_policy_cache
     echo "${YELLOW}⚠️  Restart Brave, then check brave://policy and click Reload policies.${NC}"
+    echo "${CYAN}💡 Tip: Use option [5] (Export Profile) to make settings survive Mac reboots.${NC}"
     open -a "Brave Browser" "brave://policy" 2>/dev/null || true
 }
 
@@ -507,7 +509,52 @@ apply_custom_selections() {
     echo ""
     reload_policy_cache
     echo "${YELLOW}⚠️  Restart Brave, then check brave://policy and click Reload policies.${NC}"
+    echo "${CYAN}💡 Tip: Use option [5] (Export Profile) to make settings survive Mac reboots.${NC}"
     open -a "Brave Browser" "brave://policy" 2>/dev/null || true
+}
+
+# Export the current policies to a .mobileconfig file for persistence
+export_mobileconfig() {
+    echo ""
+    echo "${CYAN}Generating Persistent Configuration Profile...${NC}"
+
+    if [ ! -s "$PLIST" ]; then
+        echo "${YELLOW}No policies currently applied. Apply a preset or custom config first.${NC}"
+        return
+    fi
+
+    local profile_path="$HOME/Desktop/Brave_Debloater.mobileconfig"
+
+    # Create base mobileconfig structure
+    echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict/></plist>' > "$profile_path"
+
+    /usr/libexec/PlistBuddy -c "Add :PayloadDisplayName string 'Brave Debloater Policies'" "$profile_path"
+    /usr/libexec/PlistBuddy -c "Add :PayloadIdentifier string 'com.github.brave-debloat-macos'" "$profile_path"
+    /usr/libexec/PlistBuddy -c "Add :PayloadType string 'Configuration'" "$profile_path"
+    /usr/libexec/PlistBuddy -c "Add :PayloadUUID string '$(uuidgen)'" "$profile_path"
+    /usr/libexec/PlistBuddy -c "Add :PayloadVersion integer 1" "$profile_path"
+    /usr/libexec/PlistBuddy -c "Add :PayloadContent array" "$profile_path"
+    
+    /usr/libexec/PlistBuddy -c "Add :PayloadContent:0 dict" "$profile_path"
+    /usr/libexec/PlistBuddy -c "Add :PayloadContent:0:PayloadType string 'com.brave.Browser'" "$profile_path"
+    /usr/libexec/PlistBuddy -c "Add :PayloadContent:0:PayloadVersion integer 1" "$profile_path"
+    /usr/libexec/PlistBuddy -c "Add :PayloadContent:0:PayloadIdentifier string 'com.brave.Browser.policy'" "$profile_path"
+    /usr/libexec/PlistBuddy -c "Add :PayloadContent:0:PayloadUUID string '$(uuidgen)'" "$profile_path"
+    /usr/libexec/PlistBuddy -c "Add :PayloadContent:0:PayloadDisplayName string 'Brave Policies'" "$profile_path"
+
+    # Merge the active policies into the profile payload
+    /usr/libexec/PlistBuddy -c "Merge '$PLIST' :PayloadContent:0" "$profile_path" 2>/dev/null
+
+    echo "${GREEN}✓ Profile exported to Desktop: ${BOLD}Brave_Debloater.mobileconfig${NC}"
+    echo ""
+    echo "${YELLOW}⚠️  IMPORTANT: To make policies survive reboots, you must install the profile!${NC}"
+    echo "1. Double-click the file on your Desktop"
+    echo "2. Open System Settings → Privacy & Security → Profiles"
+    echo "3. Double-click 'Brave Debloater Policies' and click Install"
+    echo ""
+    
+    # Auto-open the profile to trigger the system prompt
+    open "$profile_path" 2>/dev/null || true
 }
 
 # Function to reset all settings
@@ -613,16 +660,18 @@ show_menu() {
     echo ""
     echo "  ${BOLD}${YELLOW} 4 ${NC}  View Current Policies Show what is currently managed"
     echo ""
-    echo "  ${BOLD}${RED} 5 ${NC}  Reset to Defaults     Remove all managed policies"
+    echo "  ${BOLD}${CYAN} 5 ${NC}  Export Profile        Make policies survive reboots (.mobileconfig)"
     echo ""
-    echo "  ${BOLD} 6 ${NC}  Exit"
+    echo "  ${BOLD}${RED} 6 ${NC}  Reset to Defaults     Remove all managed policies"
+    echo ""
+    echo "  ${BOLD} 7 ${NC}  Exit"
     echo ""
     echo "  ${BOLD}─────────────────────────────────────────────────────────${NC}"
-    echo "  CLI flags:  --apply  --dev  --reset  --view"
+    echo "  CLI flags:  --apply  --dev  --profile  --reset  --view"
     echo "  Validate:   brave://policy  →  Reload policies"
     echo "  ${BOLD}─────────────────────────────────────────────────────────${NC}"
     echo ""
-    read -p "  Select (1-6): " choice
+    read -p "  Select (1-7): " choice
 
     case $choice in
         1)
@@ -654,19 +703,24 @@ show_menu() {
             show_menu
             ;;
         5)
+            export_mobileconfig
+            read -p "  Press Enter to continue..."
+            show_menu
+            ;;
+        6)
             reset_settings
             echo ""
             read -p "  Press Enter to continue..."
             show_menu
             ;;
-        6)
+        7)
             echo ""
             echo "  ${GREEN}${BOLD}Done.${NC} Verify your policies at ${CYAN}brave://policy${NC}"
             echo ""
             exit 0
             ;;
         *)
-            echo "  ${RED}Invalid option. Select 1-6.${NC}"
+            echo "  ${RED}Invalid option. Select 1-7.${NC}"
             sleep 1
             show_menu
             ;;
@@ -709,6 +763,15 @@ if [ "$1" = "--view" ] || [ "$1" = "-v" ]; then
     show_header
     check_brave
     view_settings
+    exit 0
+fi
+
+# Export profile mode (with --profile flag)
+if [ "$1" = "--profile" ] || [ "$1" = "-p" ]; then
+    show_header
+    check_brave
+    export_mobileconfig
+    echo ""
     exit 0
 fi
 
